@@ -42,6 +42,8 @@ Jira Create Ticket                                     │
   └─ Error → Set Failed ───────────────────────────────┘
 ```
 
+![Workflow Diagram](workflow.png)
+
 ## Prerequisites
 
 ### n8n Credentials Required
@@ -75,7 +77,9 @@ This project was a real-world request to automatically create Jira tickets based
 
 ## AI Priority Classification
 
-The AI agent (GPT-4o-mini) uses semantic analysis to classify priorities:
+The AI agent (GPT-4o-mini) uses semantic analysis to classify priorities.
+
+Numeric values were needed to map to the correct priority id in Jira.
 
 ### Priority 10001 - Critical (System Down / Emergency)
 - **Definition:** Complete system failure, security breaches, data loss, or issues affecting all users
