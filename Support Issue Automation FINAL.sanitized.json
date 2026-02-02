@@ -1,0 +1,633 @@
+{
+  "name": "Support Issue Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "8ef01fb0-98f0-41d0-a77c-53be1f72ec7f",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -2768,
+        632
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock Support Issues - includes keyword triggers for eval testing\nconst mockIssues = [\n    {\n      id: \"SUP-001\",\n      title: \"Production database is down, all services affected\",\n      description: \"Our main production database crashed at 2:47 AM. All customer-facing services are unavailable. Engineers have been paged but need immediate support escalation.\",\n      customer: \"Acme Corp\",\n      reported_at: \"2024-01-15T02:47:00Z\"\n    },\n    {\n      id: \"SUP-002\",\n      title: \"Security breach suspected - unusual login patterns detected\",\n      description: \"Our security monitoring system flagged 500+ failed login attempts from various IPs targeting admin accounts. Need immediate investigation.\",\n      customer: \"TechStart Inc\",\n      reported_at: \"2024-01-15T03:15:00Z\"\n    },\n    {\n      id: \"SUP-003\",\n      title: \"Cannot process customer orders, payment gateway broken\",\n      description: \"Since this morning, all payment processing has failed. Customers are seeing error messages. We're losing sales every minute.\",\n      customer: \"ShopMax Ltd\",\n      reported_at: \"2024-01-15T08:30:00Z\"\n    }\n];\n\nreturn mockIssues.map(issue => ({ json: issue }));"
+      },
+      "id": "18684468-26c6-43b5-bbe6-737a8bc94694",
+      "name": "Mock Support Issues",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2544,
+        632
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse AI classification response and add to item\nconst item = $input.item.json;\nlet aiResponse;\n\ntry {\n  // Try to parse the AI response - handle both direct JSON and markdown-wrapped\n  let responseText = item.output?.[0]?.content?.[0]?.text || '';\n  \n  // Remove markdown code blocks if present\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  \n  aiResponse = JSON.parse(responseText);\n} catch (e) {\n  // Default to P3 if parsing fails\n  aiResponse = { priority: '3', reason: 'Could not parse AI response, defaulting to medium priority' };\n}\n\n// Get the original issue data from the previous node\nconst originalItem = $('Mock Support Issues').item.json;\n\nconst priorityMap = {\n  10001: 'Critical',\n  2: 'High',\n  3: 'Medium',\n  4: 'Low'\n};\n\nconst priorityLabel = priorityMap[aiResponse.priority] || 'Unknown';\n\nreturn {\n  json: {\n    ...originalItem,\n    ai_priority: aiResponse.priority,\n    ai_priority_reason: aiResponse.reason,\n    priorityLabel\n  }\n};"
+      },
+      "id": "71ba6b79-9325-4aaf-bc23-87d3f03fc9ce",
+      "name": "Parse Priority Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -1296,
+        656
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse AI summary response and add to item\nconst item = $input.item.json;\nlet summaryText = item.output?.[0]?.content?.[0]?.text || 'No summary generated';\n\n// Clean up any markdown formatting\nsummaryText = summaryText.replace(/```[\\s\\S]*?```/g, '').trim();\n\n// Get the enriched issue data from previous node\nconst enrichedItem = $('Parse Priority Response').item.json;\n\nconst safeTitle = `${enrichedItem.id} - ${enrichedItem.title}`.slice(0, 255);\n\nreturn {\n  json: {\n    ...enrichedItem,\n    safeTitle,\n    ai_summary: summaryText\n  }\n};"
+      },
+      "id": "7c351970-de05-49fc-a6ac-8ab1dd85a8d0",
+      "name": "Parse Summary Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -720,
+        656
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 1,
+        "options": {
+          "jql": "=summary ~ \"{{ $json.id }}\""
+        }
+      },
+      "id": "76b7b06b-0834-4fa2-aaa3-29d6af13899c",
+      "name": "Jira Search Existing",
+      "type": "n8n-nodes-base.jira",
+      "position": [
+        -2096,
+        512
+      ],
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "YOUR_JIRA_CREDENTIAL_ID",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition-ticket-exists",
+              "leftValue": "={{ $input.item.json.key !== undefined }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bcbfc602-3848-440c-869c-82712cfcd468",
+      "name": "IF Ticket Exists",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -1872,
+        512
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-status",
+              "name": "status",
+              "value": "skipped",
+              "type": "string"
+            },
+            {
+              "id": "assign-id",
+              "name": "issue_id",
+              "value": "={{ $('Mock Support Issues').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "ecf50539-15fd-4ebf-83c8-40f02efaf926",
+              "name": "jira_id",
+              "value": "={{ $json.key }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "64697d8c-0faf-4f2f-ac9d-b77c84edc1c6",
+      "name": "Set Skipped",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -1584,
+        464
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "project": {
+          "__rl": true,
+          "value": "10039",
+          "mode": "list",
+          "cachedResultName": "Flight Schedule Pro"
+        },
+        "issueType": {
+          "__rl": true,
+          "value": "10001",
+          "mode": "list",
+          "cachedResultName": "Story"
+        },
+        "summary": "={{ $json.safeTitle }}",
+        "additionalFields": {
+          "description": "={{ $json.ai_summary }}\n\n*Priority:* {{ $('Parse Summary Response').item.json.priorityLabel }}\n*Reason:* {{ $('Parse Summary Response').item.json.ai_priority_reason }}\n----\n*Customer:* {{ $json.customer }}\n*Reported At:* {{ $('Parse Summary Response').item.json.reported_at }}\n*Original Title:* {{ $('Parse Summary Response').item.json.title }}\n\n*Original Description:*\n{{ $('Parse Summary Response').item.json.description }}",
+          "priority": {
+            "__rl": true,
+            "value": "={{ $json.ai_priority }}",
+            "mode": ""
+          }
+        }
+      },
+      "id": "b6266da4-cdeb-4f13-bce2-71fbc19dd9a5",
+      "name": "Jira Create Ticket",
+      "type": "n8n-nodes-base.jira",
+      "position": [
+        -496,
+        656
+      ],
+      "typeVersion": 1,
+      "retryOnFail": true,
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "YOUR_JIRA_CREDENTIAL_ID",
+          "name": "Jira SW Cloud account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "=:ticket: *New Jira ticket created for *\n\n*Ticket:* <https://your-company.atlassian.net/browse/{{ $json.key }}|{{ $json.key }}>\n*Issue:* {{ $('Parse Summary Response').item.json.safeTitle }}\n*Customer:* {{ $('Parse Summary Response').item.json.customer }}\n*Priority:* {{ $('Parse Summary Response').item.json.priorityLabel }}\n\n> {{ $('Parse Summary Response').item.json.ai_summary }}",
+        "otherOptions": {}
+      },
+      "id": "2248fde4-2948-4dec-9b11-ca5656276783",
+      "name": "Slack Notify New Ticket",
+      "type": "n8n-nodes-base.slack",
+      "position": [
+        -272,
+        560
+      ],
+      "typeVersion": 2.4,
+      "webhookId": "YOUR_WEBHOOK_ID_1",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_SLACK_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-status-created",
+              "name": "status",
+              "value": "created",
+              "type": "string"
+            },
+            {
+              "id": "assign-issue-id",
+              "name": "issue_id",
+              "value": "={{ $('Parse Summary Response').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-ticket-key",
+              "name": "jira_id",
+              "value": "={{ $('Jira Create Ticket').item.json.key }}",
+              "type": "string"
+            },
+            {
+              "id": "39cc933a-2935-4f95-b1ce-22e0637bf149",
+              "name": "priority",
+              "value": "={{ $('Parse Summary Response').item.json.priorityLabel }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "274dc83d-36f9-4139-b82d-64a52fb3abe0",
+      "name": "Set Created",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -48,
+        728
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-status-failed",
+              "name": "status",
+              "value": "failed",
+              "type": "string"
+            },
+            {
+              "id": "assign-issue-id-failed",
+              "name": "issue_id",
+              "value": "={{ $('Parse Summary Response').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-error",
+              "name": "jira_id",
+              "value": "Failed to create ticket",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8599f943-1491-479a-86dc-0025522132df",
+      "name": "Set Failed",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -272,
+        752
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all results\nconst items = $input.all();\n\nconst results = {\n  total: items.length,\n  created: items.filter(i => i.json.status === 'created').length,\n  skipped: items.filter(i => i.json.status === 'skipped').length,\n  failed: items.filter(i => i.json.status === 'failed').length,\n  priorityCounts: {\n    P1: items.filter(i => i.json.status === 'created' && i.json.priority === 'Critical').length,\n    P2: items.filter(i => i.json.status === 'created' && i.json.priority === 'High').length,\n    P3: items.filter(i => i.json.status === 'created' && i.json.priority === 'Medium').length,\n    P4: items.filter(i => i.json.status === 'created' && i.json.priority === 'Low').length\n  },\n  details: items.map(i => ({\n    issue_id: i.json.issue_id,\n    status: i.json.status,\n    priority: i.json.priority,\n    jira_id: i.json.jira_id || null\n  }))\n};\n\nreturn [{ json: results }];"
+      },
+      "id": "8f2f21ad-dec3-4c30-9014-92c9d328490e",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2096,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "=:white_check_mark: *Daily Support Sync Complete*\n\n*Issues Processed:* {{ $json.total }}\n*Tickets Created:* {{ $json.created }}\n*Tickets Skipped:* {{ $json.skipped }}\n*Errors:* {{ $json.failed }}\n\n*Priority Breakdown (New Tickets):*\n• P1 Critical: {{ $json.priorityCounts.P1 }}\n• P2 High: {{ $json.priorityCounts.P2 }}\n• P3 Medium: {{ $json.priorityCounts.P3 }}\n• P4 Low: {{ $json.priorityCounts.P4 }}",
+        "otherOptions": {}
+      },
+      "id": "306f8209-eeeb-4dbb-b8e1-e9378bee9fa3",
+      "name": "Slack Final Summary",
+      "type": "n8n-nodes-base.slack",
+      "position": [
+        -1872,
+        320
+      ],
+      "typeVersion": 2.4,
+      "webhookId": "YOUR_WEBHOOK_ID_2",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_SLACK_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an intelligent Support Ticket Triage Specialist. Your goal is to classify the priority of support tickets based on the semantic meaning, severity, and business impact of the user's description.\n\n### INSTRUCTIONS\n1. Analyze the user's description to understand the core issue.\n2. Determine the priority based on the definitions below.\n3. IGNORE keywords if they are used out of context (e.g., \"I put the phone *down*\" is not a system outage).\n4. Assign the lowest appropriate priority if the severity is ambiguous.\n\n### PRIORITY DEFINITIONS & GUIDELINES\n\n**10001 = Critical (System Down / Emergency)**\n*   **Definition:** Complete system failure, security breaches, data loss, or issues affecting all users. The business cannot function.\n*   **Context Clues:** \"Site is down\", \"data breach\", \"404 on homepage\", \"outage\", \"critical failure\".\n*   **Negative Constraint:** Do not use P1 for individual user errors or minor bugs, even if they use words like \"urgent\".\n\n**2 = High (Major Feature Failure)**\n*   **Definition:** A core function is broken or a specific group of users is blocked. No workaround exists, but the system is technically \"up\".\n*   **Context Clues:** \"Cannot checkout\", \"payment failed\", \"login broken\", \"production error\", \"urgent deadline\".\n\n**3 = Medium (Impaired Functionality)**\n*   **Definition:** The system is working, but with bugs, slowness, or intermittent errors. Workarounds exist, or the issue is annoying but not blocking core business.\n*   **Context Clues:** \"Slow loading\", \"glitch\", \"intermittent\", \"error message\", \"timeout\", \"bug\".\n\n**4 = Low (General / Cosmetic)**\n*   **Definition:** Questions, feature requests, typos, or minor UI issues that do not affect functionality.\n*   **Context Clues:** \"How do I...\", \"feature request\", \"typo\", \"color is wrong\", \"suggestion\".\n\n### RESPONSE FORMAT\nYou must respond with ONLY valid JSON:\n{\"priority\": \"10001|2|3|4\", \"reason\": \"A brief, 1-sentence explanation of why this priority was chosen based on impact.\"}"
+            },
+            {
+              "content": "=Analyze this support issue and classify its priority:\n\nIssue ID: {{ $('Mock Support Issues').item.json.id }}\nTitle: {{ $('Mock Support Issues').item.json.title }}\nDescription: {{ $('Mock Support Issues').item.json.description }}\nCustomer: {{ $('Mock Support Issues').item.json.customer }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1648,
+        656
+      ],
+      "id": "27f95027-26d1-4926-8008-fa82e3997812",
+      "name": "Categorize request",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a technical writer creating Jira ticket descriptions. Generate a clear, actionable summary.\n\nYour summary should:\n1. State the core problem in one sentence\n2. Note the business impact briefly\n3. Include any relevant technical details mentioned\n4. Be 2-4 sentences maximum\n\nRULES:\n- Do NOT invent details not present in the original issue\n- Do NOT add speculation about causes or solutions\n- Do NOT include greetings, sign-offs, or filler phrases\n- Do NOT use markdown formatting\n- Output ONLY the summary text as plain text"
+            },
+            {
+              "content": "=Create a Jira ticket summary for this support issue:\n\nIssue ID: {{ $json.id }}\nTitle: {{ $json.title }}\nDescription: {{ $json.description }}\nCustomer: {{ $json.customer }}\nReported at: {{ $json.reported_at }}\nClassified Priority: {{ $json.priorityLabel }}\nPriority Reason: {{ $json.ai_priority_reason }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1072,
+        656
+      ],
+      "id": "f4caba28-7556-4ab0-9a83-e89ead601c35",
+      "name": "Summarize request",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2320,
+        632
+      ],
+      "id": "3a7826aa-d986-45cf-8f50-57cd3b321e82",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock Support Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Support Issues": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Priority Response": {
+      "main": [
+        [
+          {
+            "node": "Summarize request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Summary Response": {
+      "main": [
+        [
+          {
+            "node": "Jira Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira Search Existing": {
+      "main": [
+        [
+          {
+            "node": "IF Ticket Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Ticket Exists": {
+      "main": [
+        [
+          {
+            "node": "Set Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Categorize request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Skipped": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "Slack Notify New Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notify New Ticket": {
+      "main": [
+        [
+          {
+            "node": "Set Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Created": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Failed": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Slack Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize request": {
+      "main": [
+        [
+          {
+            "node": "Parse Priority Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize request": {
+      "main": [
+        [
+          {
+            "node": "Parse Summary Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jira Search Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "2cc35240-7f5b-410e-b03a-e2eb1cafe548",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "id": "xQiKZoySuq3sY9ny1k7K-",
+  "tags": []
+}

@@ -1,0 +1,217 @@
+{
+  "name": "Support Issue Automation Eval",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse AI classification response and add to item\nconst item = $input.item.json;\nlet aiResponse;\n\ntry {\n  // Try to parse the AI response - handle both direct JSON and markdown-wrapped\n  let responseText = item.output?.[0]?.content?.[0]?.text || '';\n  \n  // Remove markdown code blocks if present\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  \n  aiResponse = JSON.parse(responseText);\n} catch (e) {\n  // Default to P3 if parsing fails\n  aiResponse = { priority: '3', reason: 'Could not parse AI response, defaulting to medium priority' };\n}\n\n// Get the original issue data from the previous node\n  const originalItem = $('When fetching a dataset row').item.json;\n\nconst priorityMap = {\n  10001: 'Critical',\n  2: 'High',\n  3: 'Medium',\n  4: 'Low'\n};\n\nconst priorityLabel = priorityMap[aiResponse.priority] || 'Unknown';\n\nreturn {\n  json: {\n    ...originalItem,\n    ai_priority: aiResponse.priority,\n    ai_priority_reason: aiResponse.reason,\n    priorityLabel\n  }\n};"
+      },
+      "id": "83ea5c58-7311-4b38-a07d-5e5b78adb95a",
+      "name": "Parse Priority Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -2112,
+        640
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an intelligent Support Ticket Triage Specialist. Your goal is to classify the priority of support tickets based on the semantic meaning, severity, and business impact of the user's description.\n\n### INSTRUCTIONS\n1. Analyze the user's description to understand the core issue.\n2. Determine the priority based on the definitions below.\n3. IGNORE keywords if they are used out of context (e.g., \"I put the phone *down*\" is not a system outage).\n4. Assign the lowest appropriate priority if the severity is ambiguous.\n\n### PRIORITY DEFINITIONS & GUIDELINES\n\n**10001 = Critical (System Down / Emergency)**\n*   **Definition:** Complete system failure, security breaches, data loss, or issues affecting all users. The business cannot function.\n*   **Context Clues:** \"Site is down\", \"data breach\", \"404 on homepage\", \"outage\", \"critical failure\".\n*   **Negative Constraint:** Do not use P1 for individual user errors or minor bugs, even if they use words like \"urgent\".\n\n**2 = High (Major Feature Failure)**\n*   **Definition:** A core function is broken or a specific group of users is blocked. No workaround exists, but the system is technically \"up\".\n*   **Context Clues:** \"Cannot checkout\", \"payment failed\", \"login broken\", \"production error\", \"urgent deadline\".\n\n**3 = Medium (Impaired Functionality)**\n*   **Definition:** The system is working, but with bugs, slowness, or intermittent errors. Workarounds exist, or the issue is annoying but not blocking core business.\n*   **Context Clues:** \"Slow loading\", \"glitch\", \"intermittent\", \"error message\", \"timeout\", \"bug\".\n\n**4 = Low (General / Cosmetic)**\n*   **Definition:** Questions, feature requests, typos, or minor UI issues that do not affect functionality.\n*   **Context Clues:** \"How do I...\", \"feature request\", \"typo\", \"color is wrong\", \"suggestion\".\n\n### RESPONSE FORMAT\nYou must respond with ONLY valid JSON:\n{\"priority\": \"10001|2|3|4\", \"reason\": \"A brief, 1-sentence explanation of why this priority was chosen based on impact.\"}"
+            },
+            {
+              "content": "=Analyze this support issue and classify its priority:\n\nIssue ID: {{ $json.id }}\nTitle: {{ $json.title }}\nDescription: {{ $json.description }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2400,
+        640
+      ],
+      "id": "083bc472-8bca-4f71-9ad2-24c3dfdf50b7",
+      "name": "Categorize request",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "source": "googleSheets",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "support-tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "support-tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        }
+      },
+      "type": "n8n-nodes-base.evaluationTrigger",
+      "typeVersion": 4.7,
+      "position": [
+        -2592,
+        640
+      ],
+      "id": "fcd0f6ee-c800-4ec2-95ea-b78e8795ef87",
+      "name": "When fetching a dataset row",
+      "notesInFlow": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Evaluation Trigger node"
+    },
+    {
+      "parameters": {
+        "operation": "setMetrics",
+        "metric": "customMetrics",
+        "metrics": {
+          "assignments": [
+            {
+              "name": "priority_match",
+              "value": "={{ $json.expected_priority == $('Parse Priority Response').item.json.priorityLabel }}",
+              "type": "number",
+              "id": "0a12d860-0413-4e75-bd4b-d5c9501afbfc"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        -1680,
+        640
+      ],
+      "id": "2253742c-64f8-4ffd-b1d0-6832ea3557f2",
+      "name": "Set Metrics"
+    },
+    {
+      "parameters": {
+        "source": "googleSheets",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "support-tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "support-tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "outputs": {
+          "values": [
+            {
+              "outputName": "actual_priority",
+              "outputValue": "={{ $json.priorityLabel }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        -1904,
+        640
+      ],
+      "id": "efa53741-c79e-4472-897f-85af5018ed34",
+      "name": "Set Outputs on Google Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Parse Priority Response": {
+      "main": [
+        [
+          {
+            "node": "Set Outputs on Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize request": {
+      "main": [
+        [
+          {
+            "node": "Parse Priority Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When fetching a dataset row": {
+      "main": [
+        [
+          {
+            "node": "Categorize request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Outputs on Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Set Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "707d38ad-e45c-44b7-9ede-590be45a7a82",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "id": "t2Xn7F3rVB3jgy70",
+  "tags": []
+}

@@ -1,0 +1,215 @@
+// Mock Support Issues - includes keyword triggers for eval testing
+const mockIssues = [
+    {
+      id: "SUP-001",
+      title: "Production database is down, all services affected",
+      description: "Our main production database crashed at 2:47 AM. All customer-facing services are unavailable. Engineers have been paged but need immediate support escalation.",
+      customer: "Acme Corp",
+      reported_at: "2024-01-15T02:47:00Z"
+    },
+    {
+      id: "SUP-002",
+      title: "Security breach suspected - unusual login patterns detected",
+      description: "Our security monitoring system flagged 500+ failed login attempts from various IPs targeting admin accounts. Need immediate investigation.",
+      customer: "TechStart Inc",
+      reported_at: "2024-01-15T03:15:00Z"
+    },
+    {
+      id: "SUP-003",
+      title: "Cannot process customer orders, payment gateway broken",
+      description: "Since this morning, all payment processing has failed. Customers are seeing error messages. We're losing sales every minute.",
+      customer: "ShopMax Ltd",
+      reported_at: "2024-01-15T08:30:00Z"
+    },
+    {
+      id: "SUP-004",
+      title: "Production API returning 500 errors intermittently",
+      description: "Our production API is failing about 20% of requests with 500 errors. This started after yesterday's deployment. Customers are complaining.",
+      customer: "DataFlow Systems",
+      reported_at: "2024-01-15T09:00:00Z"
+    },
+    {
+      id: "SUP-005",
+      title: "Email notifications delayed by 2+ hours",
+      description: "Transactional emails (password resets, order confirmations) are taking over 2 hours to deliver. Queue seems backed up.",
+      customer: "Retail Plus",
+      reported_at: "2024-01-15T09:30:00Z"
+    },
+    {
+      id: "SUP-006",
+      title: "Dashboard loading slow - takes 30+ seconds",
+      description: "The main analytics dashboard is extremely slow to load. Users are reporting 30-45 second load times. Was fine last week.",
+      customer: "Analytics Pro",
+      reported_at: "2024-01-15T10:00:00Z"
+    },
+    {
+      id: "SUP-007",
+      title: "button color incorrect on mobile",
+      description: "The 'Submit' button on our mobile app shows as gray instead of blue.",
+      customer: "MobileFirst Co",
+      reported_at: "2024-01-15T10:15:00Z"
+    },
+    {
+      id: "SUP-008",
+      title: "How to export data to CSV?",
+      description: "We need to export our user data to CSV format for quarterly reporting. Cannot find the export option in the dashboard. Please advise.",
+      customer: "Reports Inc",
+      reported_at: "2024-01-15T10:30:00Z"
+    },
+    {
+      id: "SUP-009",
+      title: "Add dark mode to admin panel",
+      description: "Our team works late nights and would love a dark mode option for the admin panel to reduce eye strain.",
+      customer: "NightOwl Tech",
+      reported_at: "2024-01-15T11:00:00Z"
+    },
+    {
+      id: "SUP-010",
+      title: "customer records missing",
+      description: "A batch of 200 customer records from yesterday appear to be missing from the database. This is critical as we need them for compliance reporting.",
+      customer: "Compliance First",
+      reported_at: "2024-01-15T11:30:00Z"
+    },
+    {
+      id: "SUP-011",
+      title: "Login page broken on Safari browser",
+      description: "Users on Safari cannot log in - the page shows a blank white screen. Chrome and Firefox work fine. Blocking our Mac users.",
+      customer: "MacShop LLC",
+      reported_at: "2024-01-15T12:00:00Z"
+    },
+    {
+      id: "SUP-012",
+      title: "Intermittent error when saving user preferences",
+      description: "About 1 in 10 attempts to save user preferences fails with a generic error message. Users have to retry multiple times.",
+      customer: "UserFirst Co",
+      reported_at: "2024-01-15T12:30:00Z"
+    },
+    {
+      id: "SUP-013",
+      title: "Entire west coast region cannot access service",
+      description: "All users in California, Oregon, and Washington are reporting complete service unavailability. East coast seems fine.",
+      customer: "WestCoast Enterprises",
+      reported_at: "2024-01-15T13:00:00Z"
+    },
+    {
+      id: "SUP-014",
+      title: "How to configure SSO with Okta?",
+      description: "We're trying to set up Single Sign-On with our Okta instance. Documentation seems outdated. Can someone provide updated steps?",
+      customer: "Enterprise Solutions",
+      reported_at: "2024-01-15T13:30:00Z"
+    },
+    {
+      id: "SUP-015",
+      title: "Report generation failing with timeout error",
+      description: "Large reports (>10000 rows) are timing out and failing to generate. Smaller reports work fine. Issue started this week.",
+      customer: "BigData Corp",
+      reported_at: "2024-01-15T14:00:00Z"
+    },
+    {
+      id: "SUP-016",
+      title: "My internet is down, can't access site",
+      description: "I cannot access your website because my home internet provider is having an outage. Please help me log in.",
+      customer: "HomeUser LLC",
+      reported_at: "2024-01-15T14:30:00Z"
+    },
+    {
+      id: "SUP-017",
+      title: "URGENT: Change button color to red",
+      description: "We need the 'Sign Up' button changed to red immediately for our marketing campaign starting tomorrow. This is critical for us.",
+      customer: "Marketing Pro",
+      reported_at: "2024-01-15T15:00:00Z"
+    },
+    {
+      id: "SUP-018",
+      title: "Is my data safe? General inquiry",
+      description: "I saw a news article about data breaches. Can you confirm what encryption you use? I am worried about security.",
+      customer: "Concerned User",
+      reported_at: "2024-01-15T15:30:00Z"
+    },
+    {
+      id: "SUP-019",
+      title: "Payment for subscription failed, card expired",
+      description: "My subscription renewal failed because my credit card expired. I need to update it but don't see where.",
+      customer: "Expired Card Co",
+      reported_at: "2024-01-15T16:00:00Z"
+    },
+    {
+      id: "SUP-020",
+      title: "I deleted my project by mistake, need restore",
+      description: "I accidentally clicked delete on my main project. Is there a way to recover this data? It is critical for my presentation.",
+      customer: "Clumsy Clicker",
+      reported_at: "2024-01-15T16:30:00Z"
+    },
+    {
+      id: "SUP-021",
+      title: "Login blocked for me after 3 failed attempts",
+      description: "I forgot my password and tried too many times. Now it says 'Login blocked'. The system is broken for me.",
+      customer: "Forgetful Fred",
+      reported_at: "2024-01-15T17:00:00Z"
+    },
+    {
+      id: "SUP-022",
+      title: "Typo in 'Critical' error message text",
+      description: "When I get a validation error, the text says 'Cirtical Error'. It should be 'Critical'. Please fix.",
+      customer: "Grammar Police",
+      reported_at: "2024-01-15T17:30:00Z"
+    },
+    {
+      id: "SUP-023",
+      title: "Emergency: Need to schedule a demo",
+      description: "I have a potential investor meeting in 1 hour. I need an emergency demo of the enterprise features. Please call me.",
+      customer: "Startup Hustle",
+      reported_at: "2024-01-15T18:00:00Z"
+    },
+    {
+      id: "SUP-024",
+      title: "Documentation gives 404 for old link",
+      description: "I clicked a link in a 2-year-old blog post and it gave a 404 error. Your documentation site is down.",
+      customer: "Retro Reader",
+      reported_at: "2024-01-15T18:30:00Z"
+    },
+    {
+      id: "SUP-025",
+      title: "API 500 error when sending invalid JSON",
+      description: "If I send a malformed JSON body to the API, I get a 500 Internal Server Error instead of a 400 Bad Request.",
+      customer: "Dev Tester",
+      reported_at: "2024-01-15T19:00:00Z"
+    },
+    {
+      id: "SUP-026",
+      title: "Export taking 5 minutes for 1M rows",
+      description: "I am exporting 1 million rows and it is taking 5 minutes. This seems slow. Is the system lagging?",
+      customer: "Big Data User",
+      reported_at: "2024-01-15T19:30:00Z"
+    },
+    {
+      id: "SUP-027",
+      title: "Contract breach question",
+      description: "If I downgrade my plan early, is that considered a breach of contract? I need to know the legal implications.",
+      customer: "Legal Eagle",
+      reported_at: "2024-01-15T20:00:00Z"
+    },
+    {
+      id: "SUP-028",
+      title: "Link to partner site is dead",
+      description: "The link in the footer to your partner 'PartnerCo' is dead. It just spins forever. Your site is broken.",
+      customer: "Partner Check",
+      reported_at: "2024-01-15T20:30:00Z"
+    },
+    {
+      id: "SUP-029",
+      title: "App crashed on my old iPhone 6",
+      description: "I tried to open the app on my iPhone 6 (iOS 12) and it crashed immediately. Everyone else says it works.",
+      customer: "Legacy Device",
+      reported_at: "2024-01-15T21:00:00Z"
+    },
+    {
+      id: "SUP-030",
+      title: "Hackathon idea for new feature",
+      description: "I have a great idea for your next hackathon: add AI-generated cat pictures to the dashboard.",
+      customer: "Creative Cat",
+      reported_at: "2024-01-15T21:30:00Z"
+    }
+  ];
+  
+  return mockIssues.map(issue => ({ json: issue }));
